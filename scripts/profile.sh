@@ -29,12 +29,13 @@ sleep 60
 log "graceful stop (flush gcov)"; rssh "$TARGET" 'sudo systemctl stop twelve.service'
 
 log "fetch profiles"
-mkdir -p "$SUB/pgo"
-rsync -az -e "ssh ${SSH_OPTS[*]}" "ubuntu@$TARGET:/srv/app/prof/" "results/prof/"
+PROF="results/prof/$LABEL"
+mkdir -p "$SUB/pgo" "$PROF"
+rsync -az -e "ssh ${SSH_OPTS[*]}" "ubuntu@$TARGET:/srv/app/prof/" "$PROF/"
 rsync -az -e "ssh ${SSH_OPTS[*]}" --include '*.gcda' --exclude '*' "ubuntu@$TARGET:/srv/app/submission/pgo/" "$SUB/pgo/"
 rssh "$TARGET" 'gcc -dumpversion | cut -d. -f1' > "$SUB/pgo/gcc-version"
-go tool pprof -proto results/prof/cpu-*.pprof > "$SUB/default.pgo"
-ls -la "$SUB/default.pgo" "$SUB/pgo/"
+go tool pprof -proto "$PROF"/cpu-*.pprof > "$SUB/default.pgo"
+ls -la "$PROF" "$SUB/default.pgo" "$SUB/pgo/"
 
 rssh "$TARGET" 'sudo sed -i "/^PROFILE_DIR=/d" /srv/app/twelve.env'
 cat <<EOF
@@ -42,4 +43,7 @@ Profiles saved locally. The target builds from GitHub, so publish them and redep
   git add $SUB/default.pgo $SUB/pgo && git commit -m "pgo: profiles from $VUS VUs" && git push
   make deploy                      # rebuilds with both profiles
   make test VUS=$VUS DURATION=5m   # A/B against the earlier hold
+Inspect the raw profiles (the heap one is taken at profile stop, after a forced GC):
+  go tool pprof -http=: $SUB/bin/server $PROF/cpu-*.pprof
+  go tool pprof -http=: -sample_index=inuse_space $SUB/bin/server $PROF/heap-*.pprof
 EOF

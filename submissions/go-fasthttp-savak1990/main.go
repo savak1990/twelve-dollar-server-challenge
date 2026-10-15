@@ -5,8 +5,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -274,7 +276,8 @@ func main() {
 var profMu sync.Mutex
 var profFile *os.File
 
-// profileOnSignal toggles a CPU profile on each SIGUSR1 (only when PROFILE_DIR is set).
+// profileOnSignal toggles a CPU profile on each SIGUSR1 (only when PROFILE_DIR is set); stopping
+// also writes a heap profile next to it.
 func profileOnSignal(dir string) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGUSR1)
@@ -287,21 +290,34 @@ func profileOnSignal(dir string) {
 				log.Printf("profiling to %s", f.Name())
 			}
 		} else {
-			pprof.StopCPUProfile()
-			profFile.Close()
-			log.Printf("profile written to %s", profFile.Name())
-			profFile = nil
+			finishProfile()
 		}
 		profMu.Unlock()
+	}
+}
+
+// finishProfile closes the CPU profile and dumps the heap; caller holds profMu.
+func finishProfile() {
+	pprof.StopCPUProfile()
+	profFile.Close()
+	log.Printf("profile written to %s", profFile.Name())
+	name := profFile.Name()
+	profFile = nil
+	// With GOGC=off the heap profile is only as fresh as the last GC, so force one.
+	runtime.GC()
+	if f, err := os.Create(strings.Replace(name, "/cpu-", "/heap-", 1)); err == nil {
+		if err := pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
+			log.Printf("heap profile: %v", err)
+		}
+		f.Close()
+		log.Printf("heap profile written to %s", f.Name())
 	}
 }
 
 func stopProfile() {
 	profMu.Lock()
 	if profFile != nil {
-		pprof.StopCPUProfile()
-		profFile.Close()
-		profFile = nil
+		finishProfile()
 	}
 	profMu.Unlock()
 }
