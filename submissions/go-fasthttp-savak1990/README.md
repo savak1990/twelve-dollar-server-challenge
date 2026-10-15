@@ -4,10 +4,10 @@
 |---|---|
 | Language | Go 1.27.1 (official tarball, sha256-checked by `install.sh`) |
 | HTTP | [`valyala/fasthttp`](https://github.com/valyala/fasthttp) v1.75.0, no router, no middleware |
-| SQLite | 3.54.0 amalgamation, downloaded and sha256-checked by `build.sh`, compiled to a static library and linked in through a ~60-line C shim; **no `database/sql`** |
+| SQLite | 3.54.0 amalgamation, downloaded and sha256-checked by `build.sh`, compiled to a static library and linked in through a ~60-line C shim; **no `database/sql`**. Optional `SQLITE_BACKEND=go` swaps in [`zombiezen.com/go/sqlite`](https://pkg.go.dev/zombiezen.com/go/sqlite) v1.4.2 (pure Go, modernc) behind the same interface, for A/B runs; default is `cgo` |
 | JSON | responses are rendered **by SQLite** (`json_object`, `json_group_array`); request JSON and JWTs are read by a small allocation-free scanner |
 | Auth | HS256 with precomputed HMAC pads, constant-time compare, verified on every request |
-| Dependencies | fasthttp + the Go standard library + SQLite. `go.sum` pins everything |
+| Dependencies | fasthttp, zombiezen/go-sqlite (only used when `SQLITE_BACKEND=go`) + the Go standard library + SQLite. `go.sum` pins everything |
 | **Nginx or direct** | **Direct**: serves `0.0.0.0:80` itself |
 
 ```bash

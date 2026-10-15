@@ -1,3 +1,9 @@
-| run | VUs | verdict | reqs | rps | med | p95 | p99 | errors | target CPU | server RAM (anon) | RSS incl. mmap | WAL max | conns | loadgen CPU |
-|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 20261015T121032Z-hold-vus1000 | 1000 | PASS | 18348 | 83 | 0.2 ms | 0.3 ms | 0.4 ms | 0% | 1% | 8 MB | 19 MB | 3.9 MB | 1000 | 0% |
+| run | VUs | backend | verdict | reqs | rps | med | p95 | p99 | errors | target CPU | server RAM (anon) | RSS incl. mmap | WAL max | conns | loadgen CPU |
+|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 20261015T121032Z-hold-vus1000 | 1000 | cgo | PASS | 18348 | 83 | 0.2 ms | 0.3 ms | 0.4 ms | 0% | - | - | - | - | - | 0% |
+| 20261015T130314Z-hold-vus20000 | 20000 | cgo | PASS | 747228 | 1868 | 0.2 ms | 0.4 ms | 15 ms | 0% | - | - | - | - | - | 5% |
+| 20261015T131232Z-hold-vus40000 | 40000 | cgo | PASS | 1494792 | 3736 | 0.2 ms | 1 ms | 13 ms | 0% | - | - | - | - | - | 10% |
+| 20261015T132937Z-train-vus40000 | 40000 | cgo | PASS | 986350 | 3522 | 0.3 ms | 1.6 ms | 13 ms | 0% | - | - | - | - | - | 10% |
+| 20261015T134637Z-train-vus40000 | 40000 | cgo | PASS | 985415 | 3518 | 0.3 ms | 1.6 ms | 13 ms | 0% | - | - | - | - | - | 10% |
+| 20261015T135328Z-hold-vus60000 | 60000 | cgo | PASS | 2241057 | 5601 | 0.4 ms | 6.1 ms | 18 ms | 0% | - | - | - | - | - | 15% |
+| 20261015T140839Z-hold-vus80000 | 80000 | cgo | PASS | 2987834 | 7467 | 0.3 ms | 7.4 ms | 22 ms | 0% | 55% | 460 MB | 505 MB | 3.9 MB | 80000 | 21% |

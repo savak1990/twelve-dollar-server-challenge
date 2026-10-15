@@ -14,6 +14,7 @@ make unit test-local           # Go tests + the upstream 42-check suite against 
 make serve                     # c7a.medium target up, submission built on the box, 42/42 there
 make test VUS=60000 DURATION=5m   # one k6 hold from the load generator (created on demand)
 make search                    # full methodology: warm-up, raw probe, binary search, 5-min confirm
+make backend BACKEND=go        # switch the target's SQLite binding (cgo shim | pure-Go zombiezen); a column in the report
 make results                   # pull results/ and rebuild results/REPORT.md
 make down CONFIRM=yes          # destroy everything
 ```

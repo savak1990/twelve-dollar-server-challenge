@@ -235,7 +235,7 @@ func env(k, def string) string {
 }
 
 func main() {
-	d, err := openDB(env("SQLITE_PATH", "feed.db"))
+	d, err := openDB(env("SQLITE_PATH", "feed.db"), env("SQLITE_BACKEND", "cgo"))
 	if err != nil {
 		log.Fatal(err)
 	}

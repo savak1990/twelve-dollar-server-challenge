@@ -96,6 +96,13 @@ profile: ## PGO cycle at VUS: train Go + SQLite profiles, rebuild, redeploy
 results: ## Fetch results/ from the loadgen and rebuild results/REPORT.md
 	bash scripts/fetch-results.sh
 
+BACKEND ?= cgo
+backend: ## Switch the target's SQLite backend (BACKEND=cgo|go) via /srv/app/twelve.env and restart
+	@[ "$(BACKEND)" = cgo ] || [ "$(BACKEND)" = go ] || { echo "BACKEND must be cgo or go"; exit 1; }
+	$(SSH) ubuntu@$$($(TF) output -raw target_public_ip) 'sudo touch /srv/app/twelve.env; sudo sed -i "/^SQLITE_BACKEND=/d" /srv/app/twelve.env; \
+	  echo SQLITE_BACKEND=$(BACKEND) | sudo tee -a /srv/app/twelve.env >/dev/null; sudo systemctl restart twelve.service; \
+	  for i in $$(seq 30); do curl -sf http://127.0.0.1/health >/dev/null && break; sleep 1; done; curl -s http://127.0.0.1/health; echo " backend=$(BACKEND)"'
+
 dashboard: tf-init ## Create/refresh the CloudWatch dashboard (CPU + memory, target vs loadgen) and print its URL
 	$(TF) apply -input=false -auto-approve $(TF_VARS) -var enable_loadgen=$(LOADGEN_STATE) -target=aws_cloudwatch_dashboard.rig >/dev/null
 	@$(TF) output -raw dashboard_url; echo
