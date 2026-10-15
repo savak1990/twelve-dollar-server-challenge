@@ -49,3 +49,37 @@ locals {
     })
   }
 }
+
+resource "aws_cloudwatch_dashboard" "rig" {
+  dashboard_name = "twelve-dollar"
+  dashboard_body = jsonencode({
+    widgets = [
+      for i, w in [
+        { title = "CPU % (total)", metric = "cpu_usage_active", extra = ["cpu", "cpu-total"] },
+        { title = "Memory used %", metric = "mem_used_percent", extra = [] },
+        ] : {
+        type   = "metric"
+        x      = i * 12
+        y      = 0
+        width  = 12
+        height = 8
+        properties = {
+          title  = w.title
+          region = var.region
+          view   = "timeSeries"
+          stat   = "Maximum"
+          period = 60
+          yAxis  = { left = { min = 0, max = 100 } }
+          metrics = [
+            for role in ["target", "loadgen"] :
+            concat(["twelve-dollar", w.metric, "role", role], w.extra, [{ label = role }])
+          ]
+        }
+      }
+    ]
+  })
+}
+
+output "dashboard_url" {
+  value = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards/dashboard/${aws_cloudwatch_dashboard.rig.dashboard_name}"
+}
