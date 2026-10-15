@@ -12,7 +12,9 @@ log "waiting for $IP"
 wait_ssh "$IP"
 
 log "pull $URL @ $REF on the box"
-rssh "$IP" "if [ -d /srv/app/src/.git ]; then sudo git -C /srv/app/src fetch -q --depth 1 origin '$REF' && sudo git -C /srv/app/src reset -q --hard FETCH_HEAD; else sudo rm -rf /srv/app/src && sudo git clone -q --depth 1 --branch '$REF' '$URL' /srv/app/src; fi && sudo git -C /srv/app/src log -1 --format='%h %s'"
+# bootstrap chowns /srv/app to the app user, so root's git needs safe.directory
+G="sudo git -c safe.directory=/srv/app/src -C /srv/app/src"
+rssh "$IP" "if [ -d /srv/app/src/.git ]; then $G fetch -q --depth 1 origin '$REF' && $G reset -q --hard FETCH_HEAD; else sudo rm -rf /srv/app/src && sudo git clone -q --depth 1 --branch '$REF' '$URL' /srv/app/src; fi && $G log -1 --format='%h %s'"
 
 log "bootstrap on the box"
 rc=0
