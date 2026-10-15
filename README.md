@@ -62,6 +62,6 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | Resource | Hourly | Note |
 |---|---|---|
 | target `c7a.medium` | ≈ $0.06 | ~$40/month if forgotten — `make down` |
-| loadgen `r7a.2xlarge` | ≈ $0.61 on-demand, ≈ $0.2 spot | self-terminates after 6 h |
+| loadgen `r7a.2xlarge` | ≈ $0.61 on-demand, ≈ $0.2–0.4 spot | self-terminates after 6 h; `LOADGEN_SPOT=false` when spot capacity is short (a reclaim mid-hold voids the run) |
 
 A full `make search` is roughly 1.5–2 hours ≈ $1–2.

@@ -25,9 +25,14 @@ REPO_REF ?= main
 VUS      ?= 1000
 DURATION ?= 2m
 RAMP_UP  ?= 60s
+# Loadgen shape. Spot r7a.2xlarge has been reclaimed/refused for capacity in eu-west-1a;
+# LOADGEN_SPOT=false (≈ $0.61/h) when a request hangs or a run must not be interrupted.
+LOADGEN_TYPE ?= r7a.2xlarge
+LOADGEN_SPOT ?= true
 
 TF_VARS = -var ssh_pubkey_path=$(SSH_PUBKEY) -var my_ip=$$(bash scripts/my-ip.sh) \
-          -var submission=$(NAME) -var repo_url=$(REPO_URL) -var repo_ref=$(REPO_REF)
+          -var submission=$(NAME) -var repo_url=$(REPO_URL) -var repo_ref=$(REPO_REF) \
+          -var loadgen_type=$(LOADGEN_TYPE) -var loadgen_spot=$(LOADGEN_SPOT)
 # Current loadgen state, normalised to a bool: with no state yet, `terraform output` prints nothing.
 LOADGEN_STATE = $$(v=$$($(TF) output -raw loadgen_enabled 2>/dev/null || true); [ "$$v" = true ] && echo true || echo false)
 
