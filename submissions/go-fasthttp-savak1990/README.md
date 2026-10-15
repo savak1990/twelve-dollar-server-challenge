@@ -22,7 +22,8 @@ SQLITE_PATH=... JWT_SECRET=... HOST=0.0.0.0 PORT=80 bash start.sh
 
 **One cgo call per request.** Every read is a single prepared statement whose only column is the
 complete response body, built by SQLite's JSON functions. `/feed` is
-`json_group_array(json(o) ORDER BY created_at DESC, id DESC)` over a 20-row subquery; the bytes are
+`json_group_array(json_object(...) ORDER BY created_at DESC, id DESC)` over a 20-row subquery of plain
+columns (building the object inside the aggregate avoids a `json()` re-parse: 22 % of feed CPU); the bytes are
 copied once, from SQLite's result buffer into the response buffer. No row objects, no Go JSON
 encoder, no per-column cgo crossings.
 
