@@ -72,10 +72,10 @@ locals {
     { title = "Memory used %", metric = "mem_used_percent", extra = [] },
   ]
   dash_search = [
-    { title = "Disk used % (/)", schema = "{twelve-dollar,fstype,path,role}", metrics = ["disk_used_percent"], stat = "Maximum", per_s = false },
-    { title = "Network bytes/s", schema = "{twelve-dollar,interface,role}", metrics = ["net_bytes_recv", "net_bytes_sent"], stat = "Sum", per_s = true },
-    { title = "Network packets/s", schema = "{twelve-dollar,interface,role}", metrics = ["net_packets_recv", "net_packets_sent"], stat = "Sum", per_s = true },
-    { title = "Disk I/O bytes/s", schema = "{twelve-dollar,name,role}", metrics = ["diskio_read_bytes", "diskio_write_bytes"], stat = "Sum", per_s = true },
+    { title = "Disk used % (/)", schema = "{twelve-dollar,fstype,path,role}", metrics = ["disk_used_percent"], stat = "Maximum", per_s = false, filter = "" },
+    { title = "Network bytes/s", schema = "{twelve-dollar,interface,role}", metrics = ["net_bytes_recv", "net_bytes_sent"], stat = "Sum", per_s = true, filter = " interface=\"enp\"" },
+    { title = "Network packets/s", schema = "{twelve-dollar,interface,role}", metrics = ["net_packets_recv", "net_packets_sent"], stat = "Sum", per_s = true, filter = " interface=\"enp\"" },
+    { title = "Disk I/O bytes/s", schema = "{twelve-dollar,name,role}", metrics = ["diskio_read_bytes", "diskio_write_bytes"], stat = "Sum", per_s = true, filter = " name=\"nvme0n1\"" },
   ]
   dash_widgets = concat(
     [for i, w in local.dash_gauge : {
@@ -93,8 +93,8 @@ locals {
         title = w.title, region = var.region, view = "timeSeries", period = 60
         yAxis = { left = { min = 0 } }
         metrics = [for p in setproduct(w.metrics, ["target", "loadgen"]) : [{
-          expression = w.per_s ? "SEARCH('${w.schema} MetricName=\"${p[0]}\" role=\"${p[1]}\"', '${w.stat}', 60) / 60" : "SEARCH('${w.schema} MetricName=\"${p[0]}\" role=\"${p[1]}\"', '${w.stat}', 60)"
-          label      = "${p[1]} ${replace(replace(p[0], "net_", ""), "diskio_", "")}"
+          expression = "SEARCH('${w.schema} MetricName=\"${p[0]}\" role=\"${p[1]}\"${w.filter}', '${w.stat}', 60)${w.per_s ? " / 60" : ""}"
+          label      = "$${PROP('Dim.role')} $${PROP('MetricName')}"
         }]]
       }
     }]
