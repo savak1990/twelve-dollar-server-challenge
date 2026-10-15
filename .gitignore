@@ -1,0 +1,27 @@
+# seed output (regenerate with `make seed`)
+seed/feed.db
+seed/feed.db-wal
+seed/feed.db-shm
+seed/tokens.json
+seed/tsv/
+
+# benchmark output: keep only the markdown reports
+results/*
+!results/*.md
+
+# terraform
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/*.tfstate
+infra/*.tfstate.*
+infra/*.tfvars
+infra/.terraform.tfstate.lock.info
+infra/generated/
+
+# build output
+**/bin/
+**/sqlite/
+*.pprof
+*.test
+
+.DS_Store

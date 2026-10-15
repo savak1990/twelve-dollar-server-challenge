@@ -1,0 +1,43 @@
+#cloud-config
+# The benchmark target. Deliberately no sysctl / kernel tuning (upstream rule 11): only packages,
+# the service user and the two systemd units. The box clones this repo from GitHub and bootstraps
+# itself (scripts/bootstrap-target.sh); `make deploy` later pulls and re-runs the same script.
+package_update: true
+packages:
+  - build-essential
+  - curl
+  - unzip
+  - git
+  - sqlite3
+  - nodejs
+  - jq
+  - ethtool
+  - rsync
+
+ssh_authorized_keys:
+  - ${bench_pubkey}
+
+users:
+  - default
+  - name: app
+    system: true
+    shell: /usr/sbin/nologin
+    homedir: /srv/app
+    no_create_home: true
+
+write_files:
+  - path: /etc/systemd/system/twelve.service
+    permissions: "0644"
+    content: |
+      ${indent(6, service_unit)}
+  - path: /etc/systemd/system/twelve-sampler.service
+    permissions: "0644"
+    content: |
+      ${indent(6, sampler_unit)}
+
+runcmd:
+  - mkdir -p /srv/app /srv/app/prof && chown -R app:app /srv/app
+  - systemctl daemon-reload
+  - systemctl enable twelve-sampler.service twelve.service
+  - git clone --depth 1 --branch "${repo_ref}" "${repo_url}" /srv/app/src
+  - bash /srv/app/src/scripts/bootstrap-target.sh "${submission}" > /var/log/twelve-bootstrap.log 2>&1 || echo "bootstrap failed, see /var/log/twelve-bootstrap.log"

@@ -1,0 +1,66 @@
+#cloud-config
+# The k6 load generator. Tuning this box is allowed (only the target must stay stock): wide ephemeral
+# port range, a million fds, and every secondary private IP attached so k6 can spread 60k+
+# connections over several source addresses (--local-ips).
+package_update: true
+packages:
+  - nodejs
+  - jq
+  - sqlite3
+  - git
+  - gnupg
+  - ca-certificates
+  - rsync
+
+write_files:
+  - path: /etc/sysctl.d/90-loadgen.conf
+    content: |
+      net.ipv4.ip_local_port_range = 1024 65535
+      net.ipv4.tcp_tw_reuse = 1
+      fs.nr_open = 2097152
+      fs.file-max = 2097152
+      net.core.somaxconn = 4096
+      net.ipv4.tcp_max_syn_backlog = 8192
+  - path: /etc/security/limits.d/90-loadgen.conf
+    content: |
+      * soft nofile 1048576
+      * hard nofile 1048576
+      root soft nofile 1048576
+      root hard nofile 1048576
+  - path: /home/ubuntu/.ssh/target_key
+    permissions: "0600"
+    owner: ubuntu:ubuntu
+    defer: true
+    content: |
+      ${indent(6, bench_privkey)}
+  - path: /usr/local/bin/attach-secondary-ips
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Adds every secondary private IP from IMDS to the primary interface.
+      set -euo pipefail
+      tok=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')
+      imds() { curl -fsS -H "X-aws-ec2-metadata-token: $tok" "http://169.254.169.254/latest/meta-data/$1"; }
+      mac=$(imds network/interfaces/macs/ | head -1 | tr -d /)
+      cidr=$(imds "network/interfaces/macs/$mac/subnet-ipv4-cidr-block")
+      prefix=$${cidr#*/}
+      primary=$(imds local-ipv4)
+      iface=$(ip -o -4 route show to default | awk '{print $5}')
+      for ip in $(imds "network/interfaces/macs/$mac/local-ipv4s"); do
+        [ "$ip" = "$primary" ] && continue
+        ip addr add "$ip/$prefix" dev "$iface" 2>/dev/null || true
+      done
+      ip -4 -o addr show dev "$iface" | awk '{print $4}'
+
+runcmd:
+  - sysctl --system
+  - /usr/local/bin/attach-secondary-ips
+  - mkdir -p /srv/bench/results
+  - git clone --depth 1 --branch "${repo_ref}" "${repo_url}" /srv/bench/src
+  - node /srv/bench/src/seed/generate.mjs /tmp/seedout > /dev/null && mv /tmp/seedout/tokens.json /srv/bench/tokens.json && rm -rf /tmp/seedout
+  - chown -R ubuntu:ubuntu /srv/bench
+  - curl -fsSL https://dl.k6.io/key.gpg | gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" > /etc/apt/sources.list.d/k6.list
+  - apt-get update -qq && apt-get install -y -qq k6
+  - k6 version > /srv/bench/k6-version.txt
+  - shutdown -h +${ttl_minutes} "twelve-dollar loadgen TTL reached"

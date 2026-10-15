@@ -1,0 +1,11 @@
+[Unit]
+Description=Host metrics sampler for the twelve-dollar target (5 s CSV)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/env bash /srv/app/src/bench/sample-host.sh /srv/app/metrics.csv
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
