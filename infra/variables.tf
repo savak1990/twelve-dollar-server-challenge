@@ -54,11 +54,6 @@ variable "loadgen_type" {
   default = "r7a.2xlarge" # 8 vCPU / 64 GiB; k6 needs ~280 KB per VU
 }
 
-variable "loadgen_spot" {
-  type    = bool
-  default = true
-}
-
 variable "loadgen_extra_ips" {
   type        = number
   default     = 3

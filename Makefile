@@ -25,14 +25,9 @@ REPO_REF ?= main
 VUS      ?= 1000
 DURATION ?= 2m
 RAMP_UP  ?= 60s
-# Loadgen shape. Spot r7a.2xlarge has been reclaimed/refused for capacity in eu-west-1a;
-# LOADGEN_SPOT=false (≈ $0.61/h) when a request hangs or a run must not be interrupted.
-LOADGEN_TYPE ?= r7a.2xlarge
-LOADGEN_SPOT ?= true
 
 TF_VARS = -var ssh_pubkey_path=$(SSH_PUBKEY) -var my_ip=$$(bash scripts/my-ip.sh) \
-          -var submission=$(NAME) -var repo_url=$(REPO_URL) -var repo_ref=$(REPO_REF) \
-          -var loadgen_type=$(LOADGEN_TYPE) -var loadgen_spot=$(LOADGEN_SPOT)
+          -var submission=$(NAME) -var repo_url=$(REPO_URL) -var repo_ref=$(REPO_REF)
 # Current loadgen state, normalised to a bool: with no state yet, `terraform output` prints nothing.
 LOADGEN_STATE = $$(v=$$($(TF) output -raw loadgen_enabled 2>/dev/null || true); [ "$$v" = true ] && echo true || echo false)
 
@@ -97,8 +92,9 @@ profile: ## PGO cycle at VUS: train Go + SQLite profiles, rebuild, redeploy
 results: ## Fetch results/ from the loadgen and rebuild results/REPORT.md
 	bash scripts/fetch-results.sh
 
-mon: ## CPU + memory of both boxes from CloudWatch (MINUTES=15; WATCH=1 refreshes every 30 s)
-	@bash scripts/cw-metrics.sh
+dashboard: tf-init ## Create/refresh the CloudWatch dashboard (CPU + memory, target vs loadgen) and print its URL
+	$(TF) apply -input=false -auto-approve $(TF_VARS) -var enable_loadgen=$(LOADGEN_STATE) -target=aws_cloudwatch_dashboard.rig >/dev/null
+	@$(TF) output -raw dashboard_url; echo
 
 status: ## List every instance tagged Project=twelve-dollar
 	aws ec2 describe-instances --filters Name=tag:Project,Values=twelve-dollar Name=instance-state-name,Values=pending,running,stopping,stopped \

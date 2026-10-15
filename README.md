@@ -23,10 +23,11 @@ AWS profile defaults to `viacheslav-dev` / `eu-west-1` (override `AWS_PROFILE`, 
 
 **CPU and memory in CloudWatch.** EC2's built-in charts cannot see guest memory and sample CPU every
 5 minutes, so both boxes run the CloudWatch agent with a CPU + memory config (IAM role
-`twelve-dollar-cwagent`). Metrics are in the custom namespace `twelve-dollar`, dimension
-`role=target|loadgen`: CloudWatch → Metrics → All metrics → twelve-dollar, or `make mon` in the
-terminal (`WATCH=1 make mon` refreshes every 30 s; CloudWatch lags 1–2 min). The agent costs the
-target ~40 MB RSS; the 5-second sampler in `bench/sample-host.sh` remains the source for the report.
+`twelve-dollar-cwagent`), publishing to the custom namespace `twelve-dollar` with a
+`role=target|loadgen` dimension. `make dashboard` creates the `twelve-dollar` dashboard (two charts,
+both roles) and prints its URL; `make serve` creates it too. CloudWatch lags 1–2 min, so for a live
+view during a hold use `tail -f /srv/app/metrics.csv` on the target. The agent costs the target
+~40 MB RSS; the 5-second sampler in `bench/sample-host.sh` remains the source for the report.
 
 **Code reaches the boxes only through GitHub.** Both instances `git clone`
 `https://github.com/savak1990/twelve-dollar-server-challenge.git` (`REPO_REF=main`) at boot; the
@@ -41,7 +42,7 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | Path | What |
 |---|---|
 | `submissions/go-fasthttp-<user>/` | The Go submission, in the upstream PR contract (`install.sh`, `build.sh`, `start.sh`, `README.md`) |
-| `infra/` | Terraform: VPC, target `c7a.medium`, optional loadgen `r7a.2xlarge` spot with 4 private IPs |
+| `infra/` | Terraform: VPC, target `c7a.medium`, optional loadgen `r7a.2xlarge` (on-demand) with 4 private IPs, CloudWatch agent + dashboard |
 | `bench/` | upstream `load.js` + our `hold.sh`, `search.sh`, `raw-feed.js`, `sample-host.sh`, `report.sh` |
 | `scripts/` | deploy / run-bench / profile / fetch-results helpers used by the Makefile |
 | `results/` | per-run k6 summaries + host metrics (gitignored) and `REPORT.md` |
@@ -62,6 +63,6 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | Resource | Hourly | Note |
 |---|---|---|
 | target `c7a.medium` | ≈ $0.06 | ~$40/month if forgotten — `make down` |
-| loadgen `r7a.2xlarge` | ≈ $0.61 on-demand, ≈ $0.2–0.4 spot | self-terminates after 6 h; `LOADGEN_SPOT=false` when spot capacity is short (a reclaim mid-hold voids the run) |
+| loadgen `r7a.2xlarge` | ≈ $0.61 (on-demand; spot was reclaimed mid-session and a reclaim voids a hold) | self-terminates after 6 h |
 
 A full `make search` is roughly 1.5–2 hours ≈ $1–2.

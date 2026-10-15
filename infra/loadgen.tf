@@ -22,18 +22,9 @@ resource "aws_instance" "loadgen" {
     device_index         = 0
   }
 
-  dynamic "instance_market_options" {
-    for_each = var.loadgen_spot ? [1] : []
-    content {
-      market_type = "spot"
-      spot_options {
-        spot_instance_type             = "one-time"
-        instance_interruption_behavior = "terminate"
-      }
-    }
-  }
-  # Spot one-time instances always terminate on shutdown; the attribute is rejected for them.
-  instance_initiated_shutdown_behavior = var.loadgen_spot ? null : "terminate"
+  # On-demand on purpose: spot r7a.2xlarge was reclaimed mid-session in eu-west-1a, and a reclaim
+  # during a hold voids the run. The TTL shutdown in cloud-init terminates the instance.
+  instance_initiated_shutdown_behavior = "terminate"
 
   user_data = templatefile("${path.module}/cloud-init/loadgen.yaml.tftpl", {
     ttl_minutes    = var.loadgen_ttl_minutes
