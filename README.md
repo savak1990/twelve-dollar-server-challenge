@@ -43,7 +43,7 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | Path | What |
 |---|---|
 | `submissions/go-fasthttp-<user>/` | The Go submission, in the upstream PR contract (`install.sh`, `build.sh`, `start.sh`, `README.md`) |
-| `infra/` | Terraform: VPC, target `c7a.medium`, optional loadgen `r7a.2xlarge` (on-demand) with 4 private IPs, CloudWatch agent + dashboard |
+| `infra/` | Terraform: VPC, target `c7a.medium`, optional loadgen `r7a.4xlarge` (on-demand) with 4 private IPs, CloudWatch agent + dashboard |
 | `bench/` | upstream `load.js` + our `hold.sh`, `search.sh`, `raw-feed.js`, `sample-host.sh`, `report.sh` |
 | `scripts/` | deploy / run-bench / profile / fetch-results helpers used by the Makefile |
 | `results/` | per-run k6 summaries + host metrics (gitignored) and `REPORT.md` |
@@ -67,7 +67,6 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | Resource | Hourly | Note |
 |---|---|---|
 | target `c7a.medium` | ≈ $0.06 | ~$40/month if forgotten — `make down` |
-| loadgen `r7a.2xlarge` | ≈ $0.61 (on-demand; spot was reclaimed mid-session and a reclaim voids a hold) | self-terminates after 6 h; good to ~100k VUs |
-| loadgen `r7a.4xlarge` (`LOADGEN_TYPE=`) | ≈ $1.22 | for runs above ~100k VUs; keep the report's loadgen CPU under 70 % |
+| loadgen `r7a.4xlarge` | ≈ $1.22 (on-demand; spot was reclaimed mid-session and a reclaim voids a hold) | self-terminates after 6 h; `r7a.2xlarge` saturated near 100k VUs |
 
 A full `make search` is roughly 1.5–2 hours ≈ $1–2.

@@ -51,7 +51,7 @@ variable "enable_loadgen" {
 
 variable "loadgen_type" {
   type    = string
-  default = "r7a.2xlarge" # 8 vCPU / 64 GiB; k6 needs ~280 KB per VU
+  default = "r7a.4xlarge" # 16 vCPU / 128 GiB; k6 needs ~280 KB and a slice of CPU per VU, saturates r7a.2xlarge near 100k
 }
 
 variable "loadgen_extra_ips" {
