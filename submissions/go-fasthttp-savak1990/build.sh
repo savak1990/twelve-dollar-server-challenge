@@ -75,7 +75,8 @@ if [ ! -f sqlite/libsqlite3.a ] || [ "$(cat sqlite/.flags 2>/dev/null)" != "$sta
 fi
 
 export CGO_ENABLED=1 GOTOOLCHAIN=local GOFLAGS=-mod=mod
-export CGO_CFLAGS="$CFLAGS $DEFS ${PGOFLAGS:+-DSHIM_GCOV}"
+# SHIM_GCOV (the __gcov_dump call) only when the gcov runtime is linked, i.e. the gen build.
+export CGO_CFLAGS="$CFLAGS $DEFS ${LDPGO:+-DSHIM_GCOV}"
 export CGO_LDFLAGS="$LDPGO"
 [ -f default.pgo ] && echo "build: using Go PGO profile default.pgo"
 echo "build: GOAMD64=${GOAMD64:-n/a} CFLAGS=$CFLAGS"
