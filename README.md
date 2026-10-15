@@ -86,7 +86,7 @@ The 140,000 run as seen by the CloudWatch dashboard (target in blue, loadgen in 
 minutes of hold, ramp-down. Target CPU at ~90 %, memory at 45 % of 2 GB, ~29 MB/s and ~32k packets/s
 each way, and the checkpoint traffic on the target's disk.
 
-![140k hold on the dashboard](docs/images/dashboard-140k.png)
+![140k hold on the dashboard](docs/images/140K_stats_run.png)
 
 ## Fidelity vs the videos
 
