@@ -53,9 +53,19 @@ Measured locally: ~7 KB of RSS per open connection.
 **Allocation-free request path.** Static pre-serialised error bodies; pooled response buffers; the
 JWT is base64-decoded and HMAC-verified into a pooled scratch buffer; the create body is unescaped
 in place and trimmed with JavaScript's `trim()` whitespace set. A heap profile taken under a 60k-user
-hold shows no allocation on the request path (all heap growth is per-connection setup). `start.sh` sets `GOGC=off` and `GOMEMLIMIT=1GiB` (both
-overridable from the environment), so the collector has nothing to do during a run and the other
-half of the 2 GB box stays with the kernel's socket buffers and the mmap'd database in page cache.
+hold shows no allocation on the request path (all heap growth is per-connection setup, see Profiles).
+
+**GC off, `GOMEMLIMIT=1GiB`.** `start.sh` exports `GOGC=off` and `GOMEMLIMIT=1GiB` (both overridable).
+With nothing allocated per request the collector has no work, so turning it off costs nothing; the
+limit is the safety fuse, the only thing that can still trigger a GC. It is 1 GiB rather than 2 because
+the limit covers only what the Go runtime manages (heap, goroutine stacks, runtime metadata) and the
+rest of the 2 GB box is spoken for: ~200 MB for Ubuntu and systemd, the 250 MB database kept resident
+in the page cache through `mmap` (if the heap pushed it out, every read would become disk I/O), and
+the kernel's socket state for tens of thousands of connections. Measured Go-side memory is ~5.7 KB per
+connection (mostly goroutine stacks; the heap itself is ~1.3 KB per connection): 340 MB at 60k,
+870 MB at 140k, and `GODEBUG=gctrace=1` during a 140k hold showed no GC cycle at all. Keeping the limit
+well above the live set also matters: a limit the live heap actually reaches makes the GC run
+continuously on the one vCPU, which would be the worst outcome of all.
 
 **Compiled for the box.** `build.sh` detects the CPU: `GOAMD64=v3` and `-march=x86-64-v3` when AVX2
 is present (every DigitalOcean/AWS host we have seen), `v2` otherwise. SQLite is built with the
@@ -93,6 +103,44 @@ binding (zombiezen / modernc) needed 86 % CPU for the same 80k load with p99 154
 
 Local sanity (Apple M-series, not comparable to the droplet): 5,000 VUs of `bench/load.js` →
 0 errors, p95 0.75 ms, p99 1.8 ms, 49 MB RSS; write stress 58k rps, 0 errors, WAL ≤ 5 MB.
+
+## Profiles
+
+From the PGO training hold (60,000 users, 151 s, gcc-instrumented SQLite so the C share is somewhat
+inflated). These are the same `default.pgo` and heap profile that ship with the source.
+
+**CPU** (`go tool pprof -top`, 75 s of samples = 50 % of the vCPU):
+
+| flat | share | function | what it is |
+|---:|---:|---|---|
+| 53.8 s | 71 % | `runtime.cgocall` | SQLite: the queries themselves. Go cannot see inside C, so all of it lands on the call site |
+| 13.1 s | 17 % | `syscall.Syscall6` | the kernel's TCP stack: one `read` and one `write` per request |
+| 0.46 s | 0.6 % | `internal/poll.(*FD).Read` | Go's side of the socket read (its 7.4 s cumulative is the syscall above) |
+| 0.30 s | 0.4 % | `fasthttp.(*Server).serveConnCounted` | the per-connection loop; 18 s cumulative is everything it calls |
+| 0.23 s | 0.3 % | `fasthttp.acquireByteReader` | waiting for a connection's first byte (`ReduceMemoryUsage`) |
+| 0.23 s | 0.3 % | `runtime.netpoll` | epoll |
+| 0.16 s | 0.2 % | `fasthttp.(*RequestHeader).parseHeaders` | HTTP parsing |
+| 0.13 s | 0.2 % | `runtime.findRunnable` | scheduler |
+
+Everything Go-side together, fasthttp, scheduler, netpoller, handlers, JWT, is about 12 %. Of the
+71 % in SQLite, the shim attributes 91 % to the two read statements (`shim_query`), 5 % to the group
+commit, 2 % to likes, 1 % to checkpoints.
+
+**Heap** (`-sample_index=inuse_space`, 65 MB live at 60k connections; `alloc_space` over the whole
+run was 77 MB, i.e. ~1.3 KB per connection and nothing per request):
+
+| live | share | allocated by | when |
+|---:|---:|---|---|
+| 29.3 MB | 45 % | `runtime.mallocgc` (inlined small objects) | connection setup |
+| 8.5 MB | 13 % | `syscall.anyToSockaddr` | `accept`: peer address |
+| 7.0 MB | 11 % | `net.newFD` | `accept`: file descriptor struct |
+| 7.0 MB | 11 % | `fasthttp.(*workerPool).Start.func1` | one worker goroutine per connection |
+| 6.1 MB | 9 % | `main.init.func2` | our pool's 16 KB response buffers, ~400 of them, recycled |
+| 4.0 MB | 6 % | `net.sockaddrToTCP` | `accept` |
+
+Nothing in the list runs per request; the request path's parsers, pools and the SQLite copy do not
+appear. Goroutine stacks, the bulk of the per-connection memory, are not heap and are not in this
+profile.
 
 ## License
 
