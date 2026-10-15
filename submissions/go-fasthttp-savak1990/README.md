@@ -61,9 +61,9 @@ half of the 2 GB box stays with the kernel's socket buffers and the mmap'd datab
 is present (every DigitalOcean/AWS host we have seen), `v2` otherwise. SQLite is built with the
 recommended `OMIT_*`/`DEFAULT_MEMSTATUS=0`/`USE_ALLOCA`/`MAX_EXPR_DEPTH=0` set.
 
-**Profile-guided optimisation.** `default.pgo` (Go PGO, from a CPU profile taken under the k6
-workload; a heap profile is written alongside for inspection, PGO itself uses only CPU) is picked up
-automatically by `go build`. `pgo/*.gcda` (gcc PGO for SQLite and the shim)
+**Profile-guided optimisation.** `default.pgo` (Go PGO, picked up automatically by `go build`) is a
+copy of `pgo/cpu.pprof`, a CPU profile taken under the k6 workload; `pgo/heap.pprof` from the same
+run is there for inspection only, PGO uses CPU profiles alone. `pgo/*.gcda` (gcc PGO for SQLite and the shim)
 are used by `build.sh` when the box's gcc major version matches the one that produced them and are
 silently skipped otherwise, so the build is identical on CI. Both are profile data, not build output.
 Expect single-digit percent: the hot path is SQLite and the kernel's TCP stack.

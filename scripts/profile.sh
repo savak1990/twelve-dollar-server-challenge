@@ -2,8 +2,9 @@
 # PGO training cycle:
 #   1. redeploy with SQLITE_PGO=gen (gcc-instrumented SQLite) and PROFILE_DIR set
 #   2. run a hold at VUS; toggle the Go CPU profile with SIGUSR1 after the ramp and before the end
-#   3. stop the service gracefully (flushes .gcda via __gcov_dump), fetch cpu*.pprof + pgo/*.gcda
-#   4. merge pprof into <submission>/default.pgo, store gcda + gcc version in <submission>/pgo/
+#   3. stop the service gracefully (flushes .gcda via __gcov_dump), fetch cpu/heap pprof + pgo/*.gcda
+#   4. store everything in <submission>/pgo/ (cpu.pprof, heap.pprof, *.gcda, gcc-version) and copy
+#      cpu.pprof to <submission>/default.pgo, the name `go build` picks up by itself
 #   5. you commit + push them and `make deploy` (the box builds from GitHub)
 #
 #   profile.sh <vus> <submission-dir>     (DURATION env, default 3m)
@@ -28,14 +29,17 @@ log "stop Go CPU profile"; rssh "$TARGET" 'sudo pkill -USR1 -f submission/bin/se
 sleep 60
 log "graceful stop (flush gcov)"; rssh "$TARGET" 'sudo systemctl stop twelve.service'
 
-log "fetch profiles"
-PROF="results/prof/$LABEL"
-mkdir -p "$SUB/pgo" "$PROF"
-rsync -az -e "ssh ${SSH_OPTS[*]}" "ubuntu@$TARGET:/srv/app/prof/" "$PROF/"
+log "fetch profiles into $SUB/pgo"
+RAW="$(mktemp -d)"
+mkdir -p "$SUB/pgo"
+rsync -az -e "ssh ${SSH_OPTS[*]}" "ubuntu@$TARGET:/srv/app/prof/" "$RAW/"
 rsync -az -e "ssh ${SSH_OPTS[*]}" --include '*.gcda' --exclude '*' "ubuntu@$TARGET:/srv/app/submission/pgo/" "$SUB/pgo/"
 rssh "$TARGET" 'gcc -dumpversion | cut -d. -f1' > "$SUB/pgo/gcc-version"
-go tool pprof -proto "$PROF"/cpu-*.pprof > "$SUB/default.pgo"
-ls -la "$PROF" "$SUB/default.pgo" "$SUB/pgo/"
+go tool pprof -proto "$RAW"/cpu-*.pprof > "$SUB/pgo/cpu.pprof"     # merged if more than one
+cp "$(ls -t "$RAW"/heap-*.pprof | head -1)" "$SUB/pgo/heap.pprof"   # newest
+rm -rf "$RAW"
+cp "$SUB/pgo/cpu.pprof" "$SUB/default.pgo"                           # the name go build auto-detects
+ls -la "$SUB/pgo/" "$SUB/default.pgo"
 
 rssh "$TARGET" 'sudo sed -i "/^PROFILE_DIR=/d" /srv/app/twelve.env'
 cat <<EOF
@@ -43,7 +47,7 @@ Profiles saved locally. The target builds from GitHub, so publish them and redep
   git add $SUB/default.pgo $SUB/pgo && git commit -m "pgo: profiles from $VUS VUs" && git push
   make deploy                      # rebuilds with both profiles
   make test VUS=$VUS DURATION=5m   # A/B against the earlier hold
-Inspect the raw profiles (the heap one is taken at profile stop, after a forced GC):
-  go tool pprof -http=: $SUB/bin/server $PROF/cpu-*.pprof
-  go tool pprof -http=: -sample_index=inuse_space $SUB/bin/server $PROF/heap-*.pprof
+Inspect the profiles (the heap one is taken at profile stop, after a forced GC):
+  go tool pprof -http=: $SUB/bin/server $SUB/pgo/cpu.pprof
+  go tool pprof -http=: -sample_index=inuse_space $SUB/bin/server $SUB/pgo/heap.pprof
 EOF
