@@ -72,7 +72,7 @@ Expect single-digit percent: the hot path is SQLite and the kernel's TCP stack.
 ## Measured
 
 _To be filled from `results/REPORT.md` after the AWS runs (c7a.medium, 1 vCPU / 2 GiB, Ubuntu 24.04,
-kernel untouched, `LimitNOFILE=65535`, k6 on a separate box in the same AZ)._
+kernel untouched, `LimitNOFILE=65535` unless stated otherwise, k6 on a separate box in the same AZ)._
 
 Local sanity (Apple M-series, not comparable to the droplet): 5,000 VUs of `bench/load.js` →
 0 errors, p95 0.75 ms, p99 1.8 ms, 49 MB RSS; write stress 58k rps, 0 errors, WAL ≤ 5 MB.

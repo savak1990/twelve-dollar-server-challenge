@@ -25,9 +25,13 @@ REPO_REF ?= main
 VUS      ?= 1000
 DURATION ?= 2m
 RAMP_UP  ?= 60s
+# Open-connection ceiling of the server unit (LimitNOFILE). Upstream uses 65535; the default here
+# lets the box go past 65k users. TARGET_NOFILE=65535 for an upstream-faithful run.
+TARGET_NOFILE ?= 1048576
 
 TF_VARS = -var ssh_pubkey_path=$(SSH_PUBKEY) -var my_ip=$$(bash scripts/my-ip.sh) \
-          -var submission=$(NAME) -var repo_url=$(REPO_URL) -var repo_ref=$(REPO_REF)
+          -var submission=$(NAME) -var repo_url=$(REPO_URL) -var repo_ref=$(REPO_REF) \
+          -var target_nofile=$(TARGET_NOFILE)
 # Current loadgen state, normalised to a bool: with no state yet, `terraform output` prints nothing.
 LOADGEN_STATE = $$(v=$$($(TF) output -raw loadgen_enabled 2>/dev/null || true); [ "$$v" = true ] && echo true || echo false)
 

@@ -52,7 +52,10 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 ## Fidelity vs the videos
 
 - Target is a dedicated Zen 4 vCPU (`c7a.medium`), faster than a DigitalOcean shared vCPU. Numbers here are optimistic.
-- The target kernel is untouched (rule 11). Only the systemd unit mirrors upstream: `LimitNOFILE=65535`, `CAP_NET_BIND_SERVICE`, non-root.
+- The target kernel is untouched (rule 11). The systemd unit mirrors upstream (`CAP_NET_BIND_SERVICE`, non-root) except
+  for `LimitNOFILE`: upstream caps it at 65535, which is the real ceiling on open connections; this rig defaults to
+  1,048,576 so the search can go past 65k users. Numbers above ~65k are not comparable with the leaderboard.
+  `make serve TARGET_NOFILE=65535` for a faithful run (replaces the target).
 - No ufw on the AWS Ubuntu AMI, so `nf_conntrack` is not loaded: the 64k conntrack wall from the video does not exist here.
   Port 80 is open to `0.0.0.0/0` with unrestricted egress so AWS security-group tracking leaves those flows untracked.
 - One k6 process on one box with 4 source IPs instead of four machines. Loadgen CPU is recorded per run; a failing run

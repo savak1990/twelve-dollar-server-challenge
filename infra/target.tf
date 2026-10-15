@@ -7,7 +7,7 @@ resource "aws_instance" "target" {
   iam_instance_profile   = aws_iam_instance_profile.cwagent.name
 
   user_data = templatefile("${path.module}/cloud-init/target.yaml.tftpl", {
-    service_unit   = file("${path.module}/systemd/twelve.service")
+    service_unit   = templatefile("${path.module}/systemd/twelve.service.tftpl", { nofile = var.target_nofile })
     sampler_unit   = file("${path.module}/systemd/twelve-sampler.service")
     repo_url       = var.repo_url
     repo_ref       = var.repo_ref

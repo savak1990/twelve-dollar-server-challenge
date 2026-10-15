@@ -17,9 +17,8 @@ resource "aws_instance" "loadgen" {
   key_name             = aws_key_pair.operator.key_name
   iam_instance_profile = aws_iam_instance_profile.cwagent.name
 
-  network_interface {
+  primary_network_interface {
     network_interface_id = aws_network_interface.loadgen[0].id
-    device_index         = 0
   }
 
   # On-demand on purpose: spot r7a.2xlarge was reclaimed mid-session in eu-west-1a, and a reclaim

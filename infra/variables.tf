@@ -71,3 +71,9 @@ variable "cwagent_interval_seconds" {
   default     = 10
   description = "CloudWatch agent memory sampling interval on both instances (CloudWatch stores 1-min points unless high-resolution)."
 }
+
+variable "target_nofile" {
+  type        = number
+  default     = 1048576
+  description = "LimitNOFILE of the server unit: the ceiling on open connections. Upstream benchmarks with 65535; above that, results are not comparable with the leaderboard."
+}
