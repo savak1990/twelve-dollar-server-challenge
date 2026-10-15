@@ -1,5 +1,5 @@
-# CloudWatch agent on both instances, memory only. EC2's built-in metrics come from the hypervisor
-# and cannot see guest memory; the agent pushes it from inside. Metrics land in the `twelve-dollar`
+# CloudWatch agent on both instances: memory and total CPU. EC2's built-in metrics come from the
+# hypervisor, cannot see guest memory and are 5-min by default. Metrics land in the `twelve-dollar`
 # namespace with a `role` dimension (target|loadgen), so charts survive instance replacement.
 # The 5-second sampler on the target (bench/sample-host.sh) stays the source for the report.
 
@@ -37,6 +37,11 @@ locals {
         metrics_collected = {
           mem = {
             measurement       = ["mem_used_percent", "mem_used", "mem_available"]
+            append_dimensions = { role = role }
+          }
+          cpu = {
+            measurement       = ["usage_active"]
+            totalcpu          = true
             append_dimensions = { role = role }
           }
         }
