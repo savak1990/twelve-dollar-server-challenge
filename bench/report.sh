@@ -7,8 +7,8 @@
 set -euo pipefail
 RES="${1:?results dir}"; METRICS="${2:-$RES/metrics.csv}"
 
-echo "| run | VUs | backend | verdict | reqs | rps | med | p95 | p99 | errors | target CPU | server RAM (anon) | RSS incl. mmap | WAL max | conns | loadgen CPU |"
-echo "|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+echo "| run | VUs | verdict | reqs | rps | med | p95 | p99 | errors | target CPU | server RAM (anon) | RSS incl. mmap | WAL max | conns | loadgen CPU |"
+echo "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
 find "$RES" -name meta.json | sort | while read -r meta; do
   dir="$(dirname "$meta")"; sum="$dir/summary.json"
   [ -s "$sum" ] || continue
@@ -26,7 +26,7 @@ find "$RES" -name meta.json | sort | while read -r meta; do
     . as $s | $m[0] as $m |
     def ms: if . < 10 then (.*10|round/10) else floor end;
     ($m.verdict + (if $m.verdict == "FAIL" and $m.loadgen_cpu_pct > 70 then " (loadgen-bound)" else "" end)) as $verdict |
-    "| \($run) | \($m.vus) | \($m.backend // "cgo") | \($verdict) | \($s.metrics.http_reqs.count) | \($s.metrics.http_reqs.rate|floor) " +
+    "| \($run) | \($m.vus) | \($verdict) | \($s.metrics.http_reqs.count) | \($s.metrics.http_reqs.rate|floor) " +
     "| \($s.metrics.http_req_duration.med|ms) ms | \($s.metrics.http_req_duration["p(95)"]|ms) ms | \($s.metrics.http_req_duration["p(99)"]|ms) ms " +
     "| \($s.metrics.http_req_failed.value*100|.*100|round/100)% | \($cpu) | \($anon) | \($rss) | \($wal) | \($conns) | \($m.loadgen_cpu_pct)% |"' "$sum"
 done

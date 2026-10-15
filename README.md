@@ -10,11 +10,10 @@ from upstream (MIT, see `LICENSE-upstream`, commit in `UPSTREAM_COMMIT`). Everyt
 
 ```bash
 make seed                      # seed/feed.db + seed/tokens.json (node >= 18, sqlite3; ~1 min)
-make unit test-local           # Go tests + the upstream 42-check suite against a local build
+make test-local                # the upstream 42-check suite against a local build
 make serve                     # c7a.medium target up, submission built on the box, 42/42 there
 make test VUS=60000 DURATION=5m   # one k6 hold from the load generator (created on demand)
 make search                    # full methodology: warm-up, raw probe, binary search, 5-min confirm
-make backend BACKEND=go        # switch the target's SQLite binding (cgo shim | pure-Go zombiezen); a column in the report
 make results                   # pull results/ and rebuild results/REPORT.md
 make down CONFIRM=yes          # destroy everything
 ```
@@ -52,7 +51,7 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 
 ## Results (2026-10-15, `go-fasthttp-savak1990`, cgo backend)
 
-Scored 5-minute holds, c7a.medium target, k6 on an r7a box in the same AZ, `LimitNOFILE=1048576`
+Scored 5-minute holds, c7a.medium target (1 vCPU / 2 GiB), k6 on an r7a box in the same AZ, `LimitNOFILE=1048576`
 (so above the 65,535 ceiling upstream benchmarks with; rows past ~65k are rig-only numbers).
 Pass = p95 < 500 ms, p99 < 1 s, errors < 1 %. Host columns come from the 5-second sampler on the
 target; the early rows lost them when the target was rebuilt.
@@ -78,9 +77,9 @@ no GC cycle, so `GOGC=off` + `GOMEMLIMIT=1GiB` is not involved. Memory is linear
 anonymous RSS per connection (goroutine stacks; the Go heap is ~1.3 KB per connection and the request
 path allocates nothing).
 
-For comparison, the same server with the pure-Go SQLite binding (`SQLITE_BACKEND=go`, zombiezen /
-modernc) at 80,000: PASS, 86 % CPU, p95 104 ms, p99 154 ms, against 56 % / 7.1 ms / 21 ms for the
-cgo shim at the same rps.
+For comparison, an A/B build of the same server with a pure-Go SQLite binding (zombiezen / modernc,
+since removed from the submission) at 80,000: PASS, 86 % CPU, p95 104 ms, p99 154 ms, against
+56 % / 7.1 ms / 21 ms for the cgo shim at the same rps.
 
 The 140,000 run as seen by the CloudWatch dashboard (target in blue, loadgen in orange): ramp, five
 minutes of hold, ramp-down. Target CPU at ~90 %, memory at 45 % of 2 GB, ~29 MB/s and ~32k packets/s
@@ -90,7 +89,7 @@ each way, and the checkpoint traffic on the target's disk.
 
 ## Fidelity vs the videos
 
-- Target is a dedicated Zen 4 vCPU (`c7a.medium`), faster than a DigitalOcean shared vCPU. Numbers here are optimistic.
+- Target is `c7a.medium`: 1 vCPU, but a dedicated core of an AMD EPYC "Zen 4"-generation CPU, faster than a DigitalOcean shared vCPU. Numbers here are optimistic.
 - The target kernel is untouched (rule 11). The systemd unit mirrors upstream (`CAP_NET_BIND_SERVICE`, non-root) except
   for `LimitNOFILE`: upstream caps it at 65535, which is the real ceiling on open connections; this rig defaults to
   1,048,576 so the search can go past 65k users. Numbers above ~65k are not comparable with the leaderboard.

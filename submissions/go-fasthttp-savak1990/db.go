@@ -1,9 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"strconv"
-)
+import "strconv"
 
 // The whole post object is rendered by SQLite, so a request costs one query and the bytes go from
 // SQLite's result straight into the response buffer.
@@ -69,29 +66,18 @@ type dbReq struct {
 }
 
 type db struct {
-	eng    engine
+	c      *conn
 	ch     chan *dbReq
 	writes []*dbReq
 }
 
-// openDB opens path with the named backend ("cgo" or "go") and starts the DB goroutine.
-func openDB(path, backend string) (*db, error) {
-	var (
-		eng engine
-		err error
-	)
-	switch backend {
-	case "cgo", "":
-		eng, err = openCgoEngine(path)
-	case "go":
-		eng, err = openGoEngine(path)
-	default:
-		return nil, fmt.Errorf("SQLITE_BACKEND=%q: want cgo or go", backend)
-	}
+// openDB opens the database and starts the DB goroutine.
+func openDB(path string) (*db, error) {
+	c, err := openConn(path)
 	if err != nil {
 		return nil, err
 	}
-	d := &db{eng: eng, ch: make(chan *dbReq, 4096), writes: make([]*dbReq, 0, maxBatch)}
+	d := &db{c: c, ch: make(chan *dbReq, 4096), writes: make([]*dbReq, 0, maxBatch)}
 	go d.loop()
 	return d, nil
 }
@@ -126,8 +112,8 @@ func (d *db) loop() {
 		if len(d.writes) > 0 {
 			d.commitBatch()
 		}
-		if len(d.ch) == 0 && d.eng.walFrames() > ckptFrames {
-			d.eng.checkpoint()
+		if len(d.ch) == 0 && d.c.walFrames() > ckptFrames {
+			d.c.checkpoint()
 		}
 	}
 }
@@ -139,11 +125,11 @@ func (d *db) read(r *dbReq) {
 	)
 	switch r.kind {
 	case reqFeed:
-		r.out, rows, err = d.eng.run(qFeed, 0, -1, nil, nil, r.out)
+		r.out, rows, err = d.c.run(qFeed, 0, -1, nil, nil, r.out)
 	case reqPost:
-		r.out, rows, err = d.eng.run(qPost, r.id, -1, nil, nil, r.out)
+		r.out, rows, err = d.c.run(qPost, r.id, -1, nil, nil, r.out)
 	case reqPing:
-		r.out, rows, err = d.eng.run(qPing, 0, -1, nil, nil, r.out[:0])
+		r.out, rows, err = d.c.run(qPing, 0, -1, nil, nil, r.out[:0])
 		r.out = r.out[:0]
 	}
 	switch {
@@ -157,7 +143,7 @@ func (d *db) read(r *dbReq) {
 }
 
 func (d *db) step(q query) error {
-	_, err := d.eng.exec(q, 0, 0)
+	_, err := d.c.exec(q, 0, 0)
 	return err
 }
 
@@ -189,7 +175,7 @@ func (d *db) failWrites() {
 func (d *db) write(r *dbReq) {
 	switch r.kind {
 	case reqCreate:
-		out, rows, err := d.eng.run(qCreate, r.user, -1, r.name, r.body, r.out)
+		out, rows, err := d.c.run(qCreate, r.user, -1, r.name, r.body, r.out)
 		r.out = out
 		switch {
 		case err != nil || rows == 0:
@@ -198,7 +184,7 @@ func (d *db) write(r *dbReq) {
 			r.status = 201
 		}
 	case reqLike:
-		n, err := d.eng.exec(qLike, r.user, r.id)
+		n, err := d.c.exec(qLike, r.user, r.id)
 		switch {
 		case err != nil:
 			r.status = 500
@@ -206,7 +192,7 @@ func (d *db) write(r *dbReq) {
 		case n == 1:
 			r.status = 201
 		default:
-			_, rows, err := d.eng.run(qExists, r.id, -1, nil, nil, r.out[:0])
+			_, rows, err := d.c.run(qExists, r.id, -1, nil, nil, r.out[:0])
 			switch {
 			case err != nil:
 				r.status = 500

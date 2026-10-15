@@ -27,20 +27,17 @@ rssh "$LG" "git -C /srv/bench/src fetch -q --depth 1 origin '$REF' && git -C /sr
 # a single hold resets the target from the laptop; a search resets it from the loadgen with the
 # dedicated bench key that Terraform generated (never the operator's key)
 FRESH="ssh ${SSH_OPTS[*]} ubuntu@$TARGET_PUB sudo bash /srv/app/src/scripts/fresh-db.sh"
-# which SQLite backend the target runs (SQLITE_BACKEND in /srv/app/twelve.env, set by `make backend`)
-BACKEND="$(rssh "$TARGET_PUB" 'sudo grep -o "^SQLITE_BACKEND=[a-z]*" /srv/app/twelve.env 2>/dev/null | tail -1 | cut -d= -f2')"
-BACKEND="${BACKEND:-cgo}"; log "target backend: $BACKEND"
 case "$MODE" in
   hold)
     VUS="${2:?vus}"; DUR="${3:?duration}"; RAMP="${4:-60s}"
     log "fresh database on target"; $FRESH
     LABEL="$(date -u +%Y%m%dT%H%M%SZ)-hold-vus$VUS"
     log "hold: $VUS VUs for $DUR (ramp $RAMP) -> $LABEL"
-    rssh "$LG" "TARGET=$TARGET_PRIV LOCAL_IPS=$LOCAL_IPS BACKEND=$BACKEND nohup bash $BENCH/hold.sh $VUS $DUR $RAMP $LABEL > /srv/bench/results/$LABEL.out 2>&1; cat /srv/bench/results/$LABEL.out" || true
+    rssh "$LG" "TARGET=$TARGET_PRIV LOCAL_IPS=$LOCAL_IPS nohup bash $BENCH/hold.sh $VUS $DUR $RAMP $LABEL > /srv/bench/results/$LABEL.out 2>&1; cat /srv/bench/results/$LABEL.out" || true
     ;;
   search)
     log "search (this takes 1.5–2 h; log streams below, Ctrl-C only stops the stream)"
-    rssh "$LG" "TARGET=$TARGET_PRIV LOCAL_IPS=$LOCAL_IPS BACKEND=$BACKEND FRESH_DB_CMD='ssh -i ~/.ssh/target_key -o StrictHostKeyChecking=accept-new ubuntu@$TARGET_PRIV sudo bash /srv/app/src/scripts/fresh-db.sh' nohup bash $BENCH/search.sh > /srv/bench/results/search.out 2>&1 &
+    rssh "$LG" "TARGET=$TARGET_PRIV LOCAL_IPS=$LOCAL_IPS FRESH_DB_CMD='ssh -i ~/.ssh/target_key -o StrictHostKeyChecking=accept-new ubuntu@$TARGET_PRIV sudo bash /srv/app/src/scripts/fresh-db.sh' nohup bash $BENCH/search.sh > /srv/bench/results/search.out 2>&1 &
       sleep 2; tail -f /srv/bench/results/search.out --pid=\$(pgrep -f bench/search.sh | head -1)" || true
     ;;
   *) echo "usage: run-bench.sh hold <vus> <duration> [ramp] | search" >&2; exit 1 ;;

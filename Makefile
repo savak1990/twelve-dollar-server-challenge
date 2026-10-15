@@ -35,7 +35,7 @@ TF_VARS = -var ssh_pubkey_path=$(SSH_PUBKEY) -var my_ip=$$(bash scripts/my-ip.sh
 # Current loadgen state, normalised to a bool: with no state yet, `terraform output` prints nothing.
 LOADGEN_STATE = $$(v=$$($(TF) output -raw loadgen_enabled 2>/dev/null || true); [ "$$v" = true ] && echo true || echo false)
 
-.PHONY: help seed unit build test-local serve deploy test search profile results status ssh-target ssh-loadgen test-down down tf-init tf-validate check-aws check-pushed
+.PHONY: help seed build test-local serve deploy test search profile results dashboard status ssh-target ssh-loadgen test-down down tf-init tf-validate check-aws check-pushed
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -45,9 +45,6 @@ help: ## List targets
 seed: seed/feed.db ## Build seed/feed.db + seed/tokens.json locally (node >= 18, sqlite3)
 seed/feed.db:
 	bash seed/make-seed.sh
-
-unit: build ## Go unit tests for the submission (needs the SQLite static lib from build)
-	cd $(SUBMISSION) && go test ./...
 
 build: ## Build the submission for this host (cgo)
 	bash $(SUBMISSION)/build.sh
@@ -95,13 +92,6 @@ profile: ## PGO cycle at VUS: train Go + SQLite profiles, rebuild, redeploy
 
 results: ## Fetch results/ from the loadgen and rebuild results/REPORT.md
 	bash scripts/fetch-results.sh
-
-BACKEND ?= cgo
-backend: ## Switch the target's SQLite backend (BACKEND=cgo|go) via /srv/app/twelve.env and restart
-	@[ "$(BACKEND)" = cgo ] || [ "$(BACKEND)" = go ] || { echo "BACKEND must be cgo or go"; exit 1; }
-	$(SSH) ubuntu@$$($(TF) output -raw target_public_ip) 'sudo touch /srv/app/twelve.env; sudo sed -i "/^SQLITE_BACKEND=/d" /srv/app/twelve.env; \
-	  echo SQLITE_BACKEND=$(BACKEND) | sudo tee -a /srv/app/twelve.env >/dev/null; sudo systemctl restart twelve.service; \
-	  for i in $$(seq 30); do curl -sf http://127.0.0.1/health >/dev/null && break; sleep 1; done; curl -s http://127.0.0.1/health; echo " backend=$(BACKEND)"'
 
 dashboard: tf-init ## Create/refresh the CloudWatch dashboard (CPU + memory, target vs loadgen) and print its URL
 	$(TF) apply -input=false -auto-approve $(TF_VARS) -var enable_loadgen=$(LOADGEN_STATE) -target=aws_cloudwatch_dashboard.rig >/dev/null

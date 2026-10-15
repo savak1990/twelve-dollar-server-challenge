@@ -29,8 +29,8 @@ read -r b1 i1 < <(read_cpu)
 db=$((b1 - b0)); tot=$((db + i1 - i0)); lgcpu=0; [ "$tot" -gt 0 ] && lgcpu=$((100 * db / tot))
 verdict=PASS; [ $rc -eq 0 ] || verdict=FAIL
 jq -n --arg vus "$VUS" --arg dur "$DURATION" --arg ramp "$RAMP" --arg start "$start" --arg end "$end" \
-      --arg rc "$rc" --arg lgcpu "$lgcpu" --arg verdict "$verdict" --arg target "$TARGET" --arg backend "${BACKEND:-cgo}" \
+      --arg rc "$rc" --arg lgcpu "$lgcpu" --arg verdict "$verdict" --arg target "$TARGET" \
       '{vus:($vus|tonumber),duration:$dur,ramp_up:$ramp,start:($start|tonumber),end:($end|tonumber),
-        k6_exit:($rc|tonumber),loadgen_cpu_pct:($lgcpu|tonumber),verdict:$verdict,target:$target,backend:$backend}' > "$OUT/meta.json"
+        k6_exit:($rc|tonumber),loadgen_cpu_pct:($lgcpu|tonumber),verdict:$verdict,target:$target}' > "$OUT/meta.json"
 echo "$verdict vus=$VUS $(jq -r '"p95=\(.metrics.http_req_duration["p(95)"]|floor)ms p99=\(.metrics.http_req_duration["p(99)"]|floor)ms failed=\(.metrics.http_req_failed.value*100|.*100|round/100)% rps=\(.metrics.http_reqs.rate|floor)"' "$OUT/summary.json" 2>/dev/null) loadgen_cpu=${lgcpu}% -> $OUT"
 exit $rc
