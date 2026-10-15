@@ -21,6 +21,12 @@ make down CONFIRM=yes          # destroy everything
 AWS profile defaults to `viacheslav-dev` / `eu-west-1` (override `AWS_PROFILE`, `AWS_REGION`).
 `make status` lists every instance tagged `Project=twelve-dollar`, in case state is lost.
 
+**Memory in CloudWatch.** EC2's built-in charts cannot see guest memory, so both boxes run the
+CloudWatch agent with a memory-only config (IAM role `twelve-dollar-cwagent`). Metrics are in the
+custom namespace `twelve-dollar`, dimension `role=target|loadgen`: CloudWatch → Metrics → All
+metrics → twelve-dollar, or `make mem` for the last 15 minutes in the terminal. The agent costs
+the target ~40 MB RSS; the 5-second sampler in `bench/sample-host.sh` remains the source for the report.
+
 **Code reaches the boxes only through GitHub.** Both instances `git clone`
 `https://github.com/savak1990/twelve-dollar-server-challenge.git` (`REPO_REF=main`) at boot; the
 target then runs `scripts/bootstrap-target.sh` (install toolchain, build from source, build the seed

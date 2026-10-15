@@ -70,3 +70,9 @@ variable "loadgen_ttl_minutes" {
   default     = 360
   description = "The loadgen shuts itself down after this long, as a cost fuse."
 }
+
+variable "cwagent_interval_seconds" {
+  type        = number
+  default     = 10
+  description = "CloudWatch agent memory sampling interval on both instances (CloudWatch stores 1-min points unless high-resolution)."
+}

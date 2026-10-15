@@ -27,6 +27,10 @@ write_files:
       * hard nofile 1048576
       root soft nofile 1048576
       root hard nofile 1048576
+  - path: /etc/cwagent.json
+    permissions: "0644"
+    content: |
+      ${indent(6, cwagent_config)}
   - path: /home/ubuntu/.ssh/target_key
     permissions: "0600"
     owner: ubuntu:ubuntu
@@ -63,4 +67,6 @@ runcmd:
   - echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" > /etc/apt/sources.list.d/k6.list
   - apt-get update -qq && apt-get install -y -qq k6
   - k6 version > /srv/bench/k6-version.txt
+  - curl -fsSL -o /tmp/cwagent.deb https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb && dpkg -i /tmp/cwagent.deb && rm -f /tmp/cwagent.deb
+  - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/etc/cwagent.json
   - shutdown -h +${ttl_minutes} "twelve-dollar loadgen TTL reached"

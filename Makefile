@@ -92,6 +92,14 @@ profile: ## PGO cycle at VUS: train Go + SQLite profiles, rebuild, redeploy
 results: ## Fetch results/ from the loadgen and rebuild results/REPORT.md
 	bash scripts/fetch-results.sh
 
+mem: ## Memory used on both boxes over the last 15 min (CloudWatch agent, namespace twelve-dollar)
+	@for role in target loadgen; do echo "== $$role (mem_used_percent, 1-min max)"; \
+	  aws cloudwatch get-metric-statistics --namespace twelve-dollar --metric-name mem_used_percent \
+	    --dimensions Name=role,Value=$$role --statistics Maximum --period 60 \
+	    --start-time "$$(date -u -v-15M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '15 min ago' +%Y-%m-%dT%H:%M:%SZ)" \
+	    --end-time "$$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+	    --query 'sort_by(Datapoints,&Timestamp)[].[Timestamp,Maximum]' --output text | awk '{printf "%s  %5.1f%%\n", $$1, $$2}'; done
+
 status: ## List every instance tagged Project=twelve-dollar
 	aws ec2 describe-instances --filters Name=tag:Project,Values=twelve-dollar Name=instance-state-name,Values=pending,running,stopping,stopped \
 	  --query 'Reservations[].Instances[].[Tags[?Key==`Role`]|[0].Value,InstanceType,State.Name,PublicIpAddress,LaunchTime]' --output table

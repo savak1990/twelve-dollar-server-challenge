@@ -4,14 +4,16 @@ resource "aws_instance" "target" {
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.target.id]
   key_name               = aws_key_pair.operator.key_name
+  iam_instance_profile   = aws_iam_instance_profile.cwagent.name
 
   user_data = templatefile("${path.module}/cloud-init/target.yaml.tftpl", {
-    service_unit = file("${path.module}/systemd/twelve.service")
-    sampler_unit = file("${path.module}/systemd/twelve-sampler.service")
-    repo_url     = var.repo_url
-    repo_ref     = var.repo_ref
-    submission   = var.submission
-    bench_pubkey = tls_private_key.bench.public_key_openssh
+    service_unit   = file("${path.module}/systemd/twelve.service")
+    sampler_unit   = file("${path.module}/systemd/twelve-sampler.service")
+    repo_url       = var.repo_url
+    repo_ref       = var.repo_ref
+    submission     = var.submission
+    bench_pubkey   = tls_private_key.bench.public_key_openssh
+    cwagent_config = local.cwagent_config["target"]
   })
   # Changing REPO_URL/REPO_REF/submission replaces the instance (fresh bootstrap); a newer Canonical
   # AMI must not, or a routine `make test` would destroy a target mid-experiment.

@@ -11,10 +11,11 @@ resource "aws_network_interface" "loadgen" {
 }
 
 resource "aws_instance" "loadgen" {
-  count         = local.loadgen_count
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = var.loadgen_type
-  key_name      = aws_key_pair.operator.key_name
+  count                = local.loadgen_count
+  ami                  = data.aws_ami.ubuntu.id
+  instance_type        = var.loadgen_type
+  key_name             = aws_key_pair.operator.key_name
+  iam_instance_profile = aws_iam_instance_profile.cwagent.name
 
   network_interface {
     network_interface_id = aws_network_interface.loadgen[0].id
@@ -35,10 +36,11 @@ resource "aws_instance" "loadgen" {
   instance_initiated_shutdown_behavior = var.loadgen_spot ? null : "terminate"
 
   user_data = templatefile("${path.module}/cloud-init/loadgen.yaml.tftpl", {
-    ttl_minutes   = var.loadgen_ttl_minutes
-    bench_privkey = tls_private_key.bench.private_key_openssh
-    repo_url      = var.repo_url
-    repo_ref      = var.repo_ref
+    ttl_minutes    = var.loadgen_ttl_minutes
+    bench_privkey  = tls_private_key.bench.private_key_openssh
+    repo_url       = var.repo_url
+    repo_ref       = var.repo_ref
+    cwagent_config = local.cwagent_config["loadgen"]
   })
   user_data_replace_on_change = true
   lifecycle {

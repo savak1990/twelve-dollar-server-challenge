@@ -34,6 +34,10 @@ write_files:
     permissions: "0644"
     content: |
       ${indent(6, sampler_unit)}
+  - path: /etc/cwagent.json
+    permissions: "0644"
+    content: |
+      ${indent(6, cwagent_config)}
 
 runcmd:
   - mkdir -p /srv/app /srv/app/prof && chown -R app:app /srv/app
@@ -41,3 +45,5 @@ runcmd:
   - systemctl enable twelve-sampler.service twelve.service
   - git clone --depth 1 --branch "${repo_ref}" "${repo_url}" /srv/app/src
   - bash /srv/app/src/scripts/bootstrap-target.sh "${submission}" > /var/log/twelve-bootstrap.log 2>&1 || echo "bootstrap failed, see /var/log/twelve-bootstrap.log"
+  - curl -fsSL -o /tmp/cwagent.deb https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb && dpkg -i /tmp/cwagent.deb && rm -f /tmp/cwagent.deb
+  - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/etc/cwagent.json
