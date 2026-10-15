@@ -2,12 +2,15 @@
 
 | | |
 |---|---|
-| Language | Go 1.27.1 (official tarball, sha256-checked by `install.sh`) |
-| HTTP | [`valyala/fasthttp`](https://github.com/valyala/fasthttp) v1.75.0, no router, no middleware |
-| SQLite | 3.54.0 amalgamation, downloaded and sha256-checked by `build.sh`, compiled to a static library and linked in through a ~60-line C shim; **no `database/sql`**, no driver dependency |
-| JSON | responses are rendered **by SQLite** (`json_object`, `json_group_array`); request JSON and JWTs are read by a small allocation-free scanner |
-| Auth | HS256 with precomputed HMAC pads, constant-time compare, verified on every request |
+| **Language** | Go 1.27.1 (official tarball, sha256-checked by `install.sh`) |
+| **Framework** | [`valyala/fasthttp`](https://github.com/valyala/fasthttp) v1.75.0, no router, no middleware |
+| **Driver** | none: SQLite 3.54.0 amalgamation, downloaded and sha256-checked by `build.sh`, compiled to a static library and called through a ~60-line C shim (cgo); no `database/sql` |
 | **Nginx or direct** | **Direct**: serves `0.0.0.0:80` itself |
+| **Optimizations** | listed with their reasons under [Design](#design) below |
+
+Also: responses are rendered **by SQLite** (`json_object`, `json_group_array`); request JSON and JWTs
+are read by a small allocation-free scanner; HS256 is verified on every request with precomputed HMAC
+pads and a constant-time compare.
 
 ```bash
 sudo bash install.sh   # build-essential, curl, unzip; Go 1.27.1 into /usr/local/go
