@@ -67,6 +67,7 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | Resource | Hourly | Note |
 |---|---|---|
 | target `c7a.medium` | ≈ $0.06 | ~$40/month if forgotten — `make down` |
-| loadgen `r7a.2xlarge` | ≈ $0.61 (on-demand; spot was reclaimed mid-session and a reclaim voids a hold) | self-terminates after 6 h |
+| loadgen `r7a.2xlarge` | ≈ $0.61 (on-demand; spot was reclaimed mid-session and a reclaim voids a hold) | self-terminates after 6 h; good to ~100k VUs |
+| loadgen `r7a.4xlarge` (`LOADGEN_TYPE=`) | ≈ $1.22 | for runs above ~100k VUs; keep the report's loadgen CPU under 70 % |
 
 A full `make search` is roughly 1.5–2 hours ≈ $1–2.
