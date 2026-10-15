@@ -46,8 +46,8 @@ if [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ]; then
   CFLAGS="$CFLAGS -march=x86-64-$GOAMD64"
 fi
 
-# gcc profile-guided optimisation of SQLite. `gen` instruments; otherwise profiles in pgo/ are used
-# when they come from the same gcc major, and silently skipped when they don't (CI stays green).
+# gcc profile-guided optimisation of SQLite. `gen` instruments; otherwise ./*.gcda (+ gcc-version) is
+# used when it comes from the same gcc major, and silently skipped when it doesn't (CI stays green).
 # -fprofile-prefix-path makes the .gcda name independent of where the checkout lives.
 gcc_major="$("$CC" -dumpversion 2>/dev/null | cut -d. -f1 || echo 0)"
 is_gcc=0; "$CC" --version 2>/dev/null | head -1 | grep -qi 'gcc' && is_gcc=1
@@ -55,12 +55,12 @@ PGOFLAGS=""; LDPGO=""
 case "${SQLITE_PGO:-use}" in
   gen)
     [ $is_gcc = 1 ] || { echo "SQLITE_PGO=gen needs gcc"; exit 1; }
-    PGOFLAGS="-fprofile-generate -fprofile-update=single -fprofile-dir=$PWD/pgo -fprofile-prefix-path=$PWD -DSHIM_GCOV"
-    LDPGO="-fprofile-generate"; mkdir -p pgo; echo "$gcc_major" > pgo/gcc-version ;;
+    PGOFLAGS="-fprofile-generate -fprofile-update=single -fprofile-dir=$PWD -fprofile-prefix-path=$PWD -DSHIM_GCOV"
+    LDPGO="-fprofile-generate"; echo "$gcc_major" > gcc-version ;;
   use)
-    if [ $is_gcc = 1 ] && ls pgo/*.gcda >/dev/null 2>&1 && [ "$gcc_major" = "$(cat pgo/gcc-version 2>/dev/null)" ]; then
-      PGOFLAGS="-fprofile-use -fprofile-dir=$PWD/pgo -fprofile-prefix-path=$PWD -fprofile-correction -Wno-missing-profile -Wno-coverage-mismatch"
-      echo "build: using gcc PGO profiles from pgo/"
+    if [ $is_gcc = 1 ] && ls ./*.gcda >/dev/null 2>&1 && [ "$gcc_major" = "$(cat gcc-version 2>/dev/null)" ]; then
+      PGOFLAGS="-fprofile-use -fprofile-dir=$PWD -fprofile-prefix-path=$PWD -fprofile-correction -Wno-missing-profile -Wno-coverage-mismatch"
+      echo "build: using gcc PGO profile ./*.gcda (gcc $gcc_major)"
     fi ;;
 esac
 
