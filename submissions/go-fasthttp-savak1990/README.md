@@ -71,8 +71,25 @@ Expect single-digit percent: the hot path is SQLite and the kernel's TCP stack.
 
 ## Measured
 
-_To be filled from `results/REPORT.md` after the AWS runs (c7a.medium, 1 vCPU / 2 GiB, Ubuntu 24.04,
-kernel untouched, `LimitNOFILE=65535` unless stated otherwise, k6 on a separate box in the same AZ)._
+AWS `c7a.medium` (1 dedicated Zen 4 vCPU / 2 GiB, Ubuntu 24.04, kernel untouched, direct on :80),
+k6 on a separate box in the same AZ, 5-minute holds of `bench/load.js`. The unit's `LimitNOFILE`
+was raised to 1,048,576 for the rows above 65k; upstream benchmarks at 65,535, and a dedicated vCPU
+is faster than the DigitalOcean shared one, so these are upper bounds, not leaderboard numbers.
+
+| VUs | verdict | rps | p95 | p99 | errors | CPU | RSS (anon) |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 20,000 | PASS | 1,868 | 0.4 ms | 15 ms | 0 % | 19 % | 118 MB |
+| 40,000 | PASS | 3,736 | 1 ms | 13 ms | 0 % | 33 % | 231 MB |
+| 60,000 | PASS | 5,601 | 6.1 ms | 18 ms | 0 % | ~45 % | ~340 MB |
+| 80,000 | PASS | 7,468 | 7.1 ms | 21 ms | 0 % | 56 % | 459 MB |
+| 120,000 | PASS | 11,171 | 117 ms | 187 ms | 0 % | 80 % | 703 MB |
+| 135,000 | PASS | 12,477 | 184 ms | 644 ms | 0 % | 85 % | 795 MB |
+| 140,000 | FAIL / PASS | 12,800 | 491 / 246 ms | 1,820 / 825 ms | 0 % | 86–89 % | 869 MB |
+
+135,000 confirmed. The limit is tail latency from the inline WAL checkpoint (an fsync on the one DB
+goroutine, every ~1,000 frames ≈ once a second at this write rate), not CPU saturation, errors or
+memory; no GC ran during the 140k hold. With the pure-Go binding (`SQLITE_BACKEND=go`) the same
+80k load costs 86 % CPU with p99 154 ms, against 56 % and 21 ms through the C shim.
 
 Local sanity (Apple M-series, not comparable to the droplet): 5,000 VUs of `bench/load.js` →
 0 errors, p95 0.75 ms, p99 1.8 ms, 49 MB RSS; write stress 58k rps, 0 errors, WAL ≤ 5 MB.

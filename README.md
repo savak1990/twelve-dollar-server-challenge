@@ -50,6 +50,44 @@ DB once, fresh DB, start, 42 checks). `make deploy` pulls the ref on the target 
 | `docs/superpowers/specs/` | design record |
 | `docs/curl-cheatsheet.md` | plain curl for every endpoint and error path, plus how to run a local server |
 
+## Results (2026-10-15, `go-fasthttp-savak1990`, cgo backend)
+
+Scored 5-minute holds, c7a.medium target, k6 on an r7a box in the same AZ, `LimitNOFILE=1048576`
+(so above the 65,535 ceiling upstream benchmarks with; rows past ~65k are rig-only numbers).
+Pass = p95 < 500 ms, p99 < 1 s, errors < 1 %. Host columns come from the 5-second sampler on the
+target; the early rows lost them when the target was rebuilt.
+
+| VUs | verdict | rps | med | p95 | p99 | errors | target CPU | server RAM (anon) | WAL max | loadgen CPU |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1,000 | PASS | 83 | 0.2 ms | 0.3 ms | 0.4 ms | 0 % | ~1 % | 8 MB | 3.9 MB | 0 % |
+| 20,000 | PASS | 1,868 | 0.2 ms | 0.4 ms | 15 ms | 0 % | 19 % | 118 MB | 3.8 MB | 5 % |
+| 40,000 | PASS | 3,736 | 0.2 ms | 1 ms | 13 ms | 0 % | 33 % | 231 MB | 3.9 MB | 10 % |
+| 60,000 | PASS | 5,601 | 0.4 ms | 6.1 ms | 18 ms | 0 % | ~45 % | ~340 MB | 3.9 MB | 15 % |
+| 80,000 | PASS | 7,468 | 0.3 ms | 7.1 ms | 21 ms | 0 % | 56 % | 459 MB | 4.0 MB | 21 % |
+| 120,000 | PASS | 11,171 | 0.5 ms | 117 ms | 187 ms | 0 % | 80 % | 703 MB | 4.0 MB | 34 % |
+| 130,000 | PASS | 12,112 | 0.5 ms | 132 ms | 199 ms | 0 % | 84 % | 760 MB | 3.9 MB | 18 % |
+| **135,000** | **PASS** | 12,477 | 0.6 ms | 184 ms | 644 ms | 0 % | 85 % | 795 MB | 3.9 MB | 20 % |
+| 140,000 | FAIL | 12,625 | 1.9 ms | 491 ms | 1,820 ms | 0 % | 86 % | 868 MB | 3.9 MB | 41 % |
+| 140,000 | PASS | 12,975 | 1.1 ms | 246 ms | 825 ms | 0 % | 89 % | 869 MB | 10.0 MB | 21 % |
+
+**135,000 users confirmed**; 140,000 passes one run in two with p99 inside 20 % of the budget. The
+limit is tail latency, never errors or memory: at ~1,000 writes/s the inline `TRUNCATE` checkpoint
+(every ~1,000 WAL frames, an fsync on the single DB goroutine) stalls every request behind it, and
+from ~120k the queue behind those stalls is what p95/p99 measure. `GODEBUG=gctrace=1` at 140k showed
+no GC cycle, so `GOGC=off` + `GOMEMLIMIT=1GiB` is not involved. Memory is linear at ~5.7 KB of
+anonymous RSS per connection (goroutine stacks; the Go heap is ~1.3 KB per connection and the request
+path allocates nothing).
+
+For comparison, the same server with the pure-Go SQLite binding (`SQLITE_BACKEND=go`, zombiezen /
+modernc) at 80,000: PASS, 86 % CPU, p95 104 ms, p99 154 ms, against 56 % / 7.1 ms / 21 ms for the
+cgo shim at the same rps.
+
+The 140,000 run as seen by the CloudWatch dashboard (target in blue, loadgen in orange): ramp, five
+minutes of hold, ramp-down. Target CPU at ~90 %, memory at 45 % of 2 GB, ~29 MB/s and ~32k packets/s
+each way, and the checkpoint traffic on the target's disk.
+
+![140k hold on the dashboard](docs/images/dashboard-140k.png)
+
 ## Fidelity vs the videos
 
 - Target is a dedicated Zen 4 vCPU (`c7a.medium`), faster than a DigitalOcean shared vCPU. Numbers here are optimistic.
