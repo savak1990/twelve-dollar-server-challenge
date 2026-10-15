@@ -24,8 +24,9 @@ find "$RES" -name meta.json | sort | while read -r meta; do
   jq -r --arg run "$(basename "$dir")" --arg cpu "$cpu" --arg anon "$anon" --arg rss "$rss" --arg wal "$wal" --arg conns "$conns" \
      --slurpfile m "$meta" '
     . as $s | $m[0] as $m |
+    def ms: if . < 10 then (.*10|round/10) else floor end;
     ($m.verdict + (if $m.verdict == "FAIL" and $m.loadgen_cpu_pct > 70 then " (loadgen-bound)" else "" end)) as $verdict |
     "| \($run) | \($m.vus) | \($verdict) | \($s.metrics.http_reqs.count) | \($s.metrics.http_reqs.rate|floor) " +
-    "| \($s.metrics.http_req_duration.med|floor) ms | \($s.metrics.http_req_duration["p(95)"]|floor) ms | \($s.metrics.http_req_duration["p(99)"]|floor) ms " +
+    "| \($s.metrics.http_req_duration.med|ms) ms | \($s.metrics.http_req_duration["p(95)"]|ms) ms | \($s.metrics.http_req_duration["p(99)"]|ms) ms " +
     "| \($s.metrics.http_req_failed.value*100|.*100|round/100)% | \($cpu) | \($anon) | \($rss) | \($wal) | \($conns) | \($m.loadgen_cpu_pct)% |"' "$sum"
 done
