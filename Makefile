@@ -13,7 +13,7 @@ NAME       := go-fasthttp-$(GH_USER)
 SUBMISSION := submissions/$(NAME)
 SSH_PUBKEY ?= $(HOME)/.ssh/id_ed25519_personal.pub
 SSH_KEY    := $(patsubst %.pub,%,$(SSH_PUBKEY))
-SSH        := ssh -i $(SSH_KEY) -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30
+SSH        := ssh -i $(SSH_KEY) -o UserKnownHostsFile=infra/known_hosts -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30
 TF         := terraform -chdir=infra
 
 # Both instances clone this public repo at boot and `make deploy` pulls it again: nothing is copied

@@ -25,3 +25,4 @@ infra/generated/
 *.test
 
 .DS_Store
+infra/known_hosts
